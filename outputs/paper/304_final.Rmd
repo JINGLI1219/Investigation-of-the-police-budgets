@@ -1,0 +1,150 @@
+---
+title: "Investigation of the Police Budgets Within the Toronto Community"
+author: "Jing Li"
+date: April 27, 2022
+output: 
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+thanks: "Code and data are available at: https://github.com/JINGLI1219/Investigation-of-the-police-budgets.git"    
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, include=FALSE}
+library(tidyverse)
+library(opendatatoronto)
+library(dplyr)
+library(modelsummary)
+package <- show_package("668434ee-9541-40a8-adb6-0ad805fcc9b6")
+package
+resources <- list_package_resources("668434ee-9541-40a8-adb6-0ad805fcc9b6")
+datastore_resources <- filter(resources, tolower(format) %in% c('csv', 'geojson'))
+data_open <- filter(datastore_resources, row_number()==1) %>% get_resource()
+data_open
+
+
+data_command <-
+  data_open %>% 
+  mutate(is_command = if_else(Pillar_Name == "East Field Command" | 
+                   Pillar_Name == "Human Resources Command" |
+                   Pillar_Name == "Communities & Neighbourhoods Command" |
+                   Pillar_Name == "Corporate Support Command" |
+                   Pillar_Name == "Information Technology Command" |
+                   Pillar_Name == "Priority Response Command" |
+                   Pillar_Name == "Specialized Operations Command" |
+                   Pillar_Name == "West Field Command", 1 , 0))
+ 
+data_org <-
+  data_command %>% 
+  mutate(organization_num = case_when(Organization_Entity <= "1 - Toronto Police Service" ~ 1, 
+                   Organization_Entity == "2 - TPS Board" ~ 2,
+                   Organization_Entity == "3 - Parking Enforcement Unit" ~ 3))
+
+data_mod <-
+  data_org %>% 
+  mutate(rev_or_sal = if_else(grepl("Salaries", Cost_Element_Long_Name,
+                                    ignore.case = TRUE), 1, 0))
+data_fin <- na.omit(data_mod)
+```
+
+\newpage
+# Abstract
+
+This paper explores the police budgets within the Toronto community and how the budgets within the police departments are distributed. In this paper, graphs including tables and histograms will be used to visualize the data, while multiple linear regression will be used to investigate the influence of different uses of police budgets as well as give predictions for expected budgets. These findings will provide insights for the police departments on the planning of the allocation of their budgets. 
+
+Keywords:Police, Budget, Visualizations, Histograms, Multiple Linear Regression
+
+# Introduction
+
+Every year, police departments will be given budgets for the allocation of police uses around the Toronto community. It is up to workers within the police department for deciding on the budget purposes, however, careful planning would be vital in order for the budget to maximize its purpose. It is important for all the budget to be correctly allocated in order for police stations to run properly for the purpose of protecting Toronto citizens. In this paper, we would be investigating the influencing factors of the allocation of budgets as well as build a multiple linear regression model to predict the estimated budget for each department. The data used in this paper would be from Open Data Toronto and this dataset includes a summarized breakdown of the Toronto Police Service approved budget and actual expenditures by command. The data has twelve variables and 2755 observations. In this paper, I hypothesize that the main influencing factors of police budgets would be allocated at services including equipments and materials, as well as salaries. This is a interesting topic to study because it would help contribute to the help of the community as well as provide insights for the planning of budget allocations.
+
+# Data
+
+This data was obtained from the Open Data Toronto portal. It is a data on Toronto Police Service approved budget and actual expenditures. The data was collected in the 2021 and was published by Toronto Police Services.The data includes 2,755 observations of 12 variables. 
+
+## Variables in the Data
+
+The data collected by the Toronto Police Service includes many variables, these variables include Fiscal_Year, Budget_Type, Organization_Entity, Command_Name, Pillar_Name, District_Name, Unit_Name, Feature_Category, Cost_Element , Cost_Element_Long_Name, Amount. To explore the data, an exploratory data analysis was done on the data.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+data_open %>% 
+  ggplot(aes(x = Amount)) + facet_wrap(~Feature_Category) +
+  geom_histogram() 
+```
+The above plot displays the distribution of budget expenditures. As we can see, most of the budget is used for salaries and services, with benefits and materials and supplies following behind. This seems resonable as we know that salaries and services are usually the top expenses in any industry. 
+
+```{r, echo=FALSE}
+data_open %>% 
+  ggplot(aes(x = Amount, y = Organization_Entity)) +
+  geom_point()
+```
+
+The above plot is a scatter plot of the relationship between the budget amount and organization entity. As we can see from the plot, most of the budget is given for the Toronto Police Service. 
+
+## Methods
+
+In this study we will be using multiple linear regression. Multiple linear regression because we have a continuous response variable and more than one predictors. 
+
+The multiple linear regression model is expressed as
+
+$$ \hat{Y_i} = \hat{\beta_0} + \hat{\beta_1}x_1 + \hat{\beta_2}x_2 ... + \hat{\beta_n}x_n$$
+
+Where: \
+y = the predicted value of the dependent variable\
+B0 = the y-intercept (value of y when all other parameters are set to 0)\
+B1X1 = the regression coefficient (B_1) of the first independent variable (X1) (the effect that increasing the = do the same for however many independent variables you are testing\
+BnXn = the regression coefficient of the last independent variable\
+e = model error (a.k.a. how much variation there is in our estimate of y)
+
+# Results
+
+We performed multiple linear regression on four variables, which are whether it is by command, the organization entity, and whether it is revenue of salary, and the feature salary, and below we have our equation. 
+
+```{r, include=FALSE}
+regress <- 
+  lm(Amount ~ is_command + organization_num + rev_or_sal + Feature_Category, 
+     data = data_fin)
+summary(regress)
+```
+
+$$ \hat{Y_i} = \hat{\beta_0} + \hat{\beta_1}IsCommand + \hat{\beta_2}OrganizationNum  +  \hat{\beta_3}RevOrSal +  \hat{\beta_4}FeatureCategory $$
+
+```{r, echo=FALSE}
+modelsummary(regress,
+             title = "Coefficients of Regression")
+```
+
+In this model, we can see that the overall model is significant since it has a p-value of less than 0.05, this means that we can use these results to intepret our model. Furthermore, we see that the variables "rev_or_sal", "Feature_CategoryMaterials & Supplies", "Feature_CategoryRevenues", and "Feature_CategoryServices" are significant, hence we say that the overall police budget can be explained by revenue and salary, that is, we would to see an increase in the budget by 2882793 if the amount is specified as salaries. Furthermore, if the budget is in the category of materials & supplies, sevenues, and services, we would see a decrease in the overall budget. 
+
+
+
+# Discussion
+## Conclusion
+
+In conclusion, in this paper, we studied the main influencing factors of police budgets and we found that the variables "rev_or_sal", "Feature_CategoryMaterials & Supplies", "Feature_CategoryRevenues", and "Feature_CategoryServices" have significant impact on the budget allocation of the police budgets. 
+
+## weaknesses
+In this paper, there are limitations, one limitation is that we did not consider model assumptions, thus, if model assumptions does not satisfy, we may not have a very accurate model. Furthermore, we are limited to only the data of one year, which would be difficut for us to make an overall conclusion on the allocation of budget for the police stations. 
+
+\newpage
+
+## References
+
+Hadley Wickham, Romain François, Lionel Henry and Kirill Müller (2022). dplyr: A Grammar of Data
+Manipulation. https://dplyr.tidyverse.org, https://github.com/tidyverse/dplyr.
+
+R Core Team. 2020. R: A Language and Environment for Statistical Computing. Vienna, Austria: R
+Foundation for Statistical Computing. https://www.R-project.org/.
+
+Sharla Gelfand (2022). opendatatoronto: Access the City of Toronto Open Data Portal.
+https://sharlagelfand.github.io/opendatatoronto/, https://github.com/sharlagelfand/opendatatoronto/.
+
+Wickham et al., (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43), 1686,
+https://doi.org/10.21105/joss.01686
+
