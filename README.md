@@ -1,4 +1,4 @@
-# Investigation-of-the-police-budgets
+# Introduction
 
 This paper explores the police budgets within the Toronto community and how the budgets within the police
 departments are distributed. In this paper, graphs including tables and histograms will be used to visualize
